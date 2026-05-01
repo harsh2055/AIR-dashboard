@@ -1,0 +1,7 @@
+{
+    "onPinchStart": "click",
+    "onPointHold": "move_mouse",
+    "onFistHold": "change_volume",
+    "onSwipeLeft": "prev_slide",
+    "onSwipeRight": "next_slide"
+}

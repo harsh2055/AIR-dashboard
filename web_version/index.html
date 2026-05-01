@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether — Air Whiteboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="logo">✦ AETHER <span>AIR BOARD</span></div>
+    <div class="nav-center">
+        <span class="gesture-dot" id="gestureDot"></span>
+        <span id="gestureLabel">Ready — show your hand</span>
+    </div>
+    <div class="nav-right">
+        <div class="fps-badge" id="fpsBadge">-- FPS</div>
+        <button class="icon-btn" id="helpBtn">?</button>
+        <button class="icon-btn" id="settingsBtn">⚙</button>
+    </div>
+</nav>
+
+<div class="app-layout">
+
+    <aside class="toolbar">
+        <div class="tool-section">
+            <p class="tool-label">MODE</p>
+            <button class="tool-btn active" data-mode="draw" id="btn-draw">✏️</button>
+            <button class="tool-btn" data-mode="erase" id="btn-erase">🧹</button>
+        </div>
+        <div class="tool-section">
+            <p class="tool-label">SIZE</p>
+            <input type="range" id="brushSize" min="2" max="50" value="6" class="vslider">
+            <span id="brushSizeLabel" class="slider-val">6</span>
+        </div>
+        <div class="tool-section">
+            <p class="tool-label">COLOR</p>
+            <div class="color-grid" id="colorGrid">
+                <button class="color-swatch active" style="--c:#ffffff" data-color="#ffffff"></button>
+                <button class="color-swatch" style="--c:#f87171" data-color="#f87171"></button>
+                <button class="color-swatch" style="--c:#fb923c" data-color="#fb923c"></button>
+                <button class="color-swatch" style="--c:#facc15" data-color="#facc15"></button>
+                <button class="color-swatch" style="--c:#4ade80" data-color="#4ade80"></button>
+                <button class="color-swatch" style="--c:#22d3ee" data-color="#22d3ee"></button>
+                <button class="color-swatch" style="--c:#60a5fa" data-color="#60a5fa"></button>
+                <button class="color-swatch" style="--c:#a78bfa" data-color="#a78bfa"></button>
+                <button class="color-swatch" style="--c:#f472b6" data-color="#f472b6"></button>
+                <button class="color-swatch" style="--c:#000000" data-color="#000000"></button>
+            </div>
+        </div>
+        <div class="tool-section">
+            <p class="tool-label">ALPHA</p>
+            <input type="range" id="opacity" min="10" max="100" value="100" class="vslider">
+            <span id="opacityLabel" class="slider-val">100%</span>
+        </div>
+        <div class="tool-section">
+            <p class="tool-label">ACTIONS</p>
+            <button class="action-btn" id="undoBtn">↩ Undo</button>
+            <button class="action-btn danger" id="clearBtn">🗑 Clear</button>
+            <button class="action-btn success" id="saveBtn">💾 Save</button>
+        </div>
+    </aside>
+
+    <main class="canvas-area" id="canvasArea">
+        <canvas id="camCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+        <video id="inputVideo" playsinline style="display:none"></video>
+        <div id="cursorRing"></div>
+        <div class="conf-wrap"><div class="conf-bar" id="confBar"></div></div>
+        <div class="cam-off" id="camOff">
+            <div>
+                <div style="font-size:3rem;margin-bottom:1rem">📷</div>
+                <p>Requesting camera access…</p>
+                <p class="sub">Please allow camera permission in your browser</p>
+            </div>
+        </div>
+    </main>
+
+    <aside class="right-panel">
+        <div class="panel-card">
+            <h3 class="panel-heading">Live Status</h3>
+            <div class="stat-row"><span class="stat-label">Gesture</span><span class="stat-val" id="statGesture">—</span></div>
+            <div class="stat-row"><span class="stat-label">Confidence</span><span class="stat-val" id="statConf">—</span></div>
+            <div class="stat-row"><span class="stat-label">Hands</span><span class="stat-val" id="statHands">0</span></div>
+            <div class="stat-row"><span class="stat-label">Strokes</span><span class="stat-val" id="statStrokes">0</span></div>
+            <div class="stat-row"><span class="stat-label">Mode</span><span class="stat-val" id="statMode">Draw</span></div>
+        </div>
+        <div class="panel-card">
+            <h3 class="panel-heading">Event Log</h3>
+            <ul id="eventLog"></ul>
+        </div>
+        <div class="panel-card">
+            <h3 class="panel-heading">Gesture Map</h3>
+            <div class="gesture-row"><span>☝️</span><span>Point → move</span></div>
+            <div class="gesture-row"><span>🤏</span><span>Pinch → draw</span></div>
+            <div class="gesture-row"><span>✊</span><span>Fist → clear</span></div>
+            <div class="gesture-row"><span>👍</span><span>Thumbs up → undo</span></div>
+            <div class="gesture-row"><span>✌️</span><span>Peace → next color</span></div>
+            <div class="gesture-row"><span>🖐</span><span>Open palm → pause</span></div>
+        </div>
+    </aside>
+
+</div>
+
+<div class="modal-backdrop" id="helpModal">
+    <div class="modal-box">
+        <button class="modal-close" id="helpClose">✕</button>
+        <h2>Air Whiteboard — Gesture Guide</h2>
+        <p class="modal-sub">Draw in mid-air using only your hand</p>
+        <div class="help-grid">
+            <div class="help-item"><span class="help-icon">☝️</span><strong>Point (index up)</strong><p>Move the cursor. No drawing yet.</p></div>
+            <div class="help-item"><span class="help-icon">🤏</span><strong>Pinch</strong><p>Bring thumb + index close together. This draws!</p></div>
+            <div class="help-item"><span class="help-icon">✊</span><strong>Fist</strong><p>Close your hand to clear the entire canvas.</p></div>
+            <div class="help-item"><span class="help-icon">👍</span><strong>Thumbs Up</strong><p>Undo the last stroke you drew.</p></div>
+            <div class="help-item"><span class="help-icon">✌️</span><strong>Peace Sign</strong><p>Cycle to the next color in the palette.</p></div>
+            <div class="help-item"><span class="help-icon">🖐</span><strong>Open Palm</strong><p>Hover without drawing — cursor still moves.</p></div>
+        </div>
+        <button class="btn-primary" id="helpStart">Start Drawing!</button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="settingsModal">
+    <div class="modal-box">
+        <button class="modal-close" id="settingsClose">✕</button>
+        <h2>Settings</h2>
+        <div class="setting-group">
+            <label>Pinch threshold</label>
+            <div style="display:flex;align-items:center;gap:10px">
+                <input type="range" id="setPinchThresh" min="20" max="80" value="45" style="flex:1">
+                <span id="setPinchVal" style="min-width:30px;text-align:right">45</span>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label>Cursor smoothing</label>
+            <div style="display:flex;align-items:center;gap:10px">
+                <input type="range" id="setSmooth" min="1" max="12" value="5" style="flex:1">
+                <span id="setSmoothVal" style="min-width:30px;text-align:right">5</span>
+            </div>
+        </div>
+        <div class="setting-group toggle-group">
+            <label>Show camera feed</label>
+            <label class="toggle"><input type="checkbox" id="setShowCam" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="setting-group toggle-group">
+            <label>Show hand skeleton</label>
+            <label class="toggle"><input type="checkbox" id="setShowSkeleton" checked><span class="toggle-slider"></span></label>
+        </div>
+        <button class="btn-primary" id="settingsSave">Save & Close</button>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
