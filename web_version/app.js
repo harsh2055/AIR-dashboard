@@ -53,14 +53,23 @@ function recognizeGesture(lms) {
 
     const pinchDist = Math.hypot(lms[4].x - lms[8].x, lms[4].y - lms[8].y) * camCanvas.width;
     const thumbUp   = lms[4].y < lms[3].y;
-
-    if (pinchDist < state.pinchThreshold) return { name: 'Pinch', conf: mapConf(pinchDist, 0, state.pinchThreshold), icon: '🤏' };
-
     const sum = fingers.reduce((a, b) => a + b, 0);
+
+    // Dynamic threshold based on hand distance (palm size)
+    const palmSize = Math.hypot(lms[0].x - lms[9].x, lms[0].y - lms[9].y) * camCanvas.width;
+    const dynamicThreshold = state.pinchThreshold * (palmSize / 100);
+
+    // Strictly prevent ThumbsUp from being misclassified as a Pinch
+    const isThumbsUp = (sum === 0 && thumbUp);
+
+    if (pinchDist < dynamicThreshold && !isThumbsUp) {
+        return { name: 'Pinch', conf: mapConf(pinchDist, 0, dynamicThreshold), icon: '🤏' };
+    }
+
     if (sum === 4 && thumbUp)  return { name: 'OpenPalm', conf: 0.95, icon: '🖐' };
     if (sum === 0 && !thumbUp) return { name: 'Fist',     conf: 0.95, icon: '✊' };
     if (fingers[0] === 1 && sum === 2 && fingers[1] === 1) return { name: 'Peace',    conf: 0.9, icon: '✌️' };
-    if (sum === 0 && thumbUp)  return { name: 'ThumbsUp', conf: 0.9, icon: '👍' };
+    if (isThumbsUp)            return { name: 'ThumbsUp', conf: 0.9, icon: '👍' };
     if (fingers[0] === 1 && sum === 1) return { name: 'Point',  conf: 0.85, icon: '☝️' };
 
     return { name: 'Unknown', conf: 0.3, icon: '❓' };
