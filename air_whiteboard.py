@@ -98,14 +98,17 @@ class GestureRecognizer:
         if not lms:
             return 'None', 0.0
 
-        # Fingers up (y-based)
-        fingers = [
-            1 if lms[self.TIP_IDS[i]][1] < lms[self.BASE_IDS[i]][1] else 0
-            for i in range(4)
-        ]
+        # Robust curl detection: tip is further from wrist than PIP
+        fingers = []
+        for i in range(4):
+            tip_idx = self.TIP_IDS[i]
+            pip_idx = self.BASE_IDS[i]
+            tip_dist = np.hypot(lms[tip_idx][0] - lms[0][0], lms[tip_idx][1] - lms[0][1])
+            pip_dist = np.hypot(lms[pip_idx][0] - lms[0][0], lms[pip_idx][1] - lms[0][1])
+            fingers.append(1 if tip_dist > pip_dist else 0)
+
         thumb_up = lms[4][0] < lms[3][0]  # thumb tip x < thumb IP x (mirrored)
         f_sum = sum(fingers)
-        is_thumbs_up = (f_sum == 0 and thumb_up)
 
         # Dynamic threshold based on hand distance (palm size)
         palm_dx = (lms[0][2] - lms[9][2]) * frame_w
@@ -118,7 +121,8 @@ class GestureRecognizer:
         dy = (lms[4][3] - lms[8][3]) * frame_w
         pinch_dist = np.hypot(dx, dy)
 
-        if pinch_dist < dynamic_threshold and not is_thumbs_up:
+        # If pinch distance is small, it's a pinch. Period.
+        if pinch_dist < dynamic_threshold:
             conf = 1.0 - pinch_dist / dynamic_threshold
             return 'Pinch', float(np.clip(conf, 0, 1))
 
@@ -126,7 +130,7 @@ class GestureRecognizer:
         if f_sum == 0 and not thumb_up:       return 'Fist',     0.95
         if fingers[0] and fingers[1] and f_sum == 2:
                                                return 'Peace',    0.90
-        if is_thumbs_up:                      return 'ThumbsUp', 0.90
+        if f_sum == 0 and thumb_up:           return 'ThumbsUp', 0.90
         if fingers[0] and f_sum == 1:         return 'Point',    0.85
 
         return 'Unknown', 0.30

@@ -48,8 +48,14 @@ const COLORS = ['#ffffff','#f87171','#fb923c','#facc15','#4ade80','#22d3ee','#60
 // ── Gesture recognition ──────────────────────────────────────
 function recognizeGesture(lms) {
     const tips   = [8, 12, 16, 20];
-    const bases  = [6, 10, 14, 18];
-    const fingers = tips.map((t, i) => lms[t].y < lms[bases[i]].y ? 1 : 0);
+    const pips   = [6, 10, 14, 18];
+    
+    // Robust curl detection: tip is further from wrist than PIP
+    const fingers = tips.map((t, i) => {
+        const tipDist = Math.hypot(lms[t].x - lms[0].x, lms[t].y - lms[0].y);
+        const pipDist = Math.hypot(lms[pips[i]].x - lms[0].x, lms[pips[i]].y - lms[0].y);
+        return tipDist > pipDist ? 1 : 0;
+    });
 
     const pinchDist = Math.hypot(lms[4].x - lms[8].x, lms[4].y - lms[8].y) * camCanvas.width;
     const thumbUp   = lms[4].y < lms[3].y;
@@ -59,17 +65,15 @@ function recognizeGesture(lms) {
     const palmSize = Math.hypot(lms[0].x - lms[9].x, lms[0].y - lms[9].y) * camCanvas.width;
     const dynamicThreshold = state.pinchThreshold * (palmSize / 100);
 
-    // Strictly prevent ThumbsUp from being misclassified as a Pinch
-    const isThumbsUp = (sum === 0 && thumbUp);
-
-    if (pinchDist < dynamicThreshold && !isThumbsUp) {
+    // If pinch distance is small, it's a pinch. Period.
+    if (pinchDist < dynamicThreshold) {
         return { name: 'Pinch', conf: mapConf(pinchDist, 0, dynamicThreshold), icon: '🤏' };
     }
 
     if (sum === 4 && thumbUp)  return { name: 'OpenPalm', conf: 0.95, icon: '🖐' };
     if (sum === 0 && !thumbUp) return { name: 'Fist',     conf: 0.95, icon: '✊' };
     if (fingers[0] === 1 && sum === 2 && fingers[1] === 1) return { name: 'Peace',    conf: 0.9, icon: '✌️' };
-    if (isThumbsUp)            return { name: 'ThumbsUp', conf: 0.9, icon: '👍' };
+    if (sum === 0 && thumbUp)  return { name: 'ThumbsUp', conf: 0.9, icon: '👍' };
     if (fingers[0] === 1 && sum === 1) return { name: 'Point',  conf: 0.85, icon: '☝️' };
 
     return { name: 'Unknown', conf: 0.3, icon: '❓' };
